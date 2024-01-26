@@ -119,6 +119,7 @@ for (i in 1:length(unique(patients.cnvs.df$patient_ID))){
   matching_rows <- findOverlaps(grl[[i]], GRCh38.chromArm, select = "arbitrary") # choose this if a cnv spans to multiple chrom arms
   grl[[i]]$chrom.arm <- mcols(GRCh38.chromArm)$chrom.arm[matching_rows]
   
+  
 }
 
 
