@@ -12,7 +12,7 @@ library("GenomicRanges")
 library("CNVRanger")
 library("AnnotationHub")
 
-# library("mclust")
+library("mclust")
 
 
 
@@ -50,8 +50,12 @@ vcf2df <- function(vcf.path) {
   
   tcn <- INFO2df(vcf)$TCN_EM
   
+  num_mark <- INFO2df(vcf)$NUM_MARK
+  
+  cnlr_median <- INFO2df(vcf)$CNLR_MEDIAN
+  
   # data frame with the CNVs called by cnv_facets
-  cnv.df <- data.frame(chrom, pos, end, svtype, tcn)
+  cnv.df <- data.frame(chrom, pos, end, svtype, tcn, num_mark, cnlr_median)
   
   return(cnv.df)
   
@@ -161,11 +165,13 @@ for (vcf.file in list.files(cnv.vcf.files.dir)) {
 }
 
 
+
+
 # Rename the column names to the exprected from "makeGRangesListFromDataFrame" function
-colnames(patients.cnvs.df) <- c("chr", "start", "end", "svtype", "state", "patient_ID")
+colnames(patients.cnvs.df) <- c("chr", "start", "end", "svtype", "state", "num_mark", "cnlr_median",  "patient_ID")
 
 # Read the R data-frame and group the calls by patient ID and convert them to a GRangesList
-grl <- GenomicRanges::makeGRangesListFromDataFrame(patients.cnvs.df, 
+grl <- GenomicRanges::makeGRangesListFromDataFrame(patients.cnvs.df[, c("chr", "start", "end", "svtype", "state", "patient_ID")], 
                                                    split.field="patient_ID", keep.extra.columns=TRUE)
 
 
@@ -284,6 +290,20 @@ oncoplot(maf = laml,
          includeColBarCN = FALSE
 )
 
+
+# oncoplot with genes dndscv genes
+oncoplot(maf = laml,
+         genes = c("MYD88", "CXCR4", "FOXD4L1", "GYPB", "RSAD2", "CD79B", "ZYG11B"),
+         fontSize = 0.3, annotationFontSize = 1, legendFontSize = 1, titleFontSize = 0.8,
+         showTumorSampleBarcodes = TRUE,
+         clinicalFeatures = c("State","cAst_PCR"),
+         sortByAnnotation = TRUE,   ##sorts only according to the 1st clinical feature
+         groupAnnotationBySize = FALSE,
+         annotationOrder = c("IGM-MGUS", "aWM_stable", "aWM_progressed", "sWM", "treated"),
+         includeColBarCN = FALSE
+)
+
+
 # oncoplot with immunoglobuline genes (only the ones with mutations)
 immunoglobuline.genes = read.table(file="/home/rania/Documents/Tina/WES/maftools_plots/immunoglobulin_genes.txt", header = FALSE)
 immunoglobuline.genes.vec <- immunoglobuline.genes[ , 1]
@@ -359,7 +379,7 @@ biocarta_gene_sets <- dplyr::filter(all_gene_sets, gs_cat == "C2", gs_subcat == 
 
 
 # NFKB, ERK/MAPK, DNA  repair pathway, epigenetic signaling
-pathways <- biocarta_gene_sets[biocarta_gene_sets$gs_name %in%  c("BIOCARTA_NFKB_PATHWAY", "BIOCARTA_ERK_PATHWAY", "BIOCARTA_MAPK_PATHWAY", "BIOCARTA_RB_PATHWAY"), c("human_gene_symbol", "gs_name")]
+pathways <- biocarta_gene_sets[biocarta_gene_sets$gs_name %in%  c("BIOCARTA_NFKB_PATHWAY", "BIOCARTA_ERK_PATHWAY", "BIOCARTA_MAPK_PATHWAY", "BIOCARTA_RB_PATHWAY", "BIOCARTA_P53_PATHWAY"), c("human_gene_symbol", "gs_name")]
 colnames(pathways) <- c("Genes", "Pathway")
 
 
@@ -597,6 +617,74 @@ maftools::plotSignatures(nmfRes = laml.sig, contributions = TRUE, title_size = 0
                          legend.text = c("A", "B"),
                          args.legend = list(x = "topleft")
                          )
+
+
+
+
+
+# Density plots, tumor heterogeneity and MATH scores ----
+
+# Prepare the segmentation file (must be tab separated file):
+# Column names should be: Sample, Chromosome, Start, End, Num_Probes and Segment_Mean (log2 scale)
+# !! Num_Probes is not important for the analysis !!
+
+segFile.df <- patients.cnvs.df[, c("patient_ID", "chr", "start", "end", "num_mark", "cnlr_median")]
+
+colnames(segFile.df) <- c("Sample", "Chromosome", "Start", "End", "Num_Probes", "Segment_Mean")
+
+write.table(segFile.df, file = "segFile.txt" , quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+
+
+
+# "T_1558","T_1919","T_2029","T_2065","T_2088","T_2090","T_2245","T_2298","T_2303","T_2306","T_3100","T_3316",T_3540","T_3546","T_3672","T_3721","T_3826","T_3860","T_3905","T_4010","T_4021","T_4162","T_4198","T_4250","T_4269","T_4272","T_4302","T_4366","T_4388","T_4445","T_4496","T_4511","T1_2308","T_2308_2"
+
+samplename <- "T_2308_2"
+
+pdf(file = paste0("./density_plots/", samplename, ".pdf"))
+
+het1 = inferHeterogeneity(maf = laml, tsb = samplename, vafCol = NULL, useSyn = TRUE)
+
+# ignore variants located on copy-number altered regions
+het2 = inferHeterogeneity(maf = laml, tsb = samplename, vafCol = NULL, useSyn = TRUE, segFile = "segFile.txt")
+
+print(het1$clusterMeans)
+
+plotClusters(clusters = het1, genes = "all")
+
+print(het2$clusterMeans)
+
+plotClusters(clusters = het2, genes = 'CN_altered', showCNvars = TRUE)
+
+dev.off()
+
+
+# # Plots ignoring chromosomes with CNVs
+# het = inferHeterogeneity(maf = laml, tsb = "T_1962", vafCol = NULL, ignChr = c("chr2","chr6","chr14","chr18","chrX","chrY"), useSyn = TRUE)
+# het = inferHeterogeneity(maf = laml, tsb = "T_1558", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_1919", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_2029", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_2088", vafCol = NULL, ignChr = c("chr1","chr2","chr7","chr8","chr9","chr11","chr14","chr16","chr17","chr19","chr20","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_2090", vafCol = NULL, ignChr = c("chr7","chr9","chr12","chr19","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_2245", vafCol = NULL, ignChr = c("chr1","chr4","chr7","chr12","chr14","chr16","chr19","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_2298", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_2303", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_2306", vafCol = NULL, ignChr = c("chr7","chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3100", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3100", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3316", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3540", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3546", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3672", vafCol = NULL, ignChr = c("chr1","chr2","chr5","chr6","chr14","chr16","chr19","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3721", vafCol = NULL, ignChr = c("chr1","chr2","chr9","chr14","chr15","chr16","chr18","chr19","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3826", vafCol = NULL, ignChr = c("chr1","chr2","chr5","chr7","chr11","chr14","chr15","chr16","chr19","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3860", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3905", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_3967", vafCol = NULL, ignChr = c("chr1","chr5","chr15","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T_4010", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T1_2308", vafCol = NULL, ignChr = c("chr1","chr6","chr12","chr14","chr19","chrX","chrY"))
+# het = inferHeterogeneity(maf = laml, tsb = "T2_3164", vafCol = NULL, ignChr = c("chr14","chrX","chrY"))
+
+
 
 
 
