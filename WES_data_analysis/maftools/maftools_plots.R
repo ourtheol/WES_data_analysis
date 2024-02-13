@@ -3,6 +3,7 @@
 # BiocManager::install("maftools")
 
 library("maftools")
+library("data.table")
 library("tidyverse")
 library("ggplot2")
 library("RColorBrewer")
@@ -16,7 +17,7 @@ library("mclust")
 
 
 
-setwd("/home/rania/Documents/Tina/WES/maftools_plots/")
+
 
 
 # Path to the somatic SNVs maf files
@@ -66,26 +67,35 @@ vcf2df <- function(vcf.path) {
 # Prep the input to maftools ---- 
 
 ## Variant_Classifications
-nonSilentPLUSsilent = c("Frame_Shift_Del", "Frame_Shift_Ins", "Splice_Site", "Translation_Start_Site",
-                        "Nonsense_Mutation", "Nonstop_Mutation", "In_Frame_Del", "In_Frame_Ins", "Missense_Mutation",
-                        
-                        "3'UTR", "5'UTR", "3'Flank", "Targeted_Region", "Silent", "Intron", "RNA", "IGR",
-                        "Splice_Region", "5'Flank", "lincRNA", "De_novo_Start_InFrame", "De_novo_Start_OutOfFrame",
-                        "Start_Codon_Ins", "Start_Codon_SNP", "Stop_Codon_Del")
+# nonSilentPLUSsilent = c("Frame_Shift_Del", "Frame_Shift_Ins", "Splice_Site", "Translation_Start_Site",
+#                         "Nonsense_Mutation", "Nonstop_Mutation", "In_Frame_Del", "In_Frame_Ins", "Missense_Mutation",
+#                         "3'UTR", "5'UTR", "3'Flank", "Targeted_Region", "Silent", "Intron", "RNA", "IGR",
+#                         "Splice_Region", "5'Flank", "lincRNA", "De_novo_Start_InFrame", "De_novo_Start_OutOfFrame",
+#                         "Start_Codon_Ins", "Start_Codon_SNP", "Stop_Codon_Del")
+# 
+# ## Set colors for each Variant_Classification
+# getPalette = colorRampPalette(brewer.pal(12, "Paired"))
+# colourCount = length(unique(nonSilentPLUSsilent))
+# nonSilentPLUSsilent.cols = getPalette(colourCount)
+# names(nonSilentPLUSsilent.cols) = nonSilentPLUSsilent
+
+## Variant_Classifications
+nonSynonymous = c("Frame_Shift_Del", "Frame_Shift_Ins", "Splice_Site", "Translation_Start_Site",
+                        "Nonsense_Mutation", "Nonstop_Mutation", "In_Frame_Del", "In_Frame_Ins", "Missense_Mutation")
 
 ## Set colors for each Variant_Classification
 getPalette = colorRampPalette(brewer.pal(12, "Paired"))
-colourCount = length(unique(nonSilentPLUSsilent))
-nonSilentPLUSsilent.cols = getPalette(colourCount)
-names(nonSilentPLUSsilent.cols) = nonSilentPLUSsilent
+colourCount = length(unique(nonSynonymous))
+nonSynonymous.cols = getPalette(colourCount)
+names(nonSynonymous.cols) = nonSynonymous
 
 # ## Set colors for MYD88L265P
 # mutVSwt.cols = c("mediumaquamarine", "mediumpurple2")
 # names(mutVSwt.cols) = c("mut","wt")
 # 
-# ## Set colors for stage of WM
-# stage.cols = c("khaki3", "salmon1", "indianred2", "orangered3", "chartreuse4")
-# names(stage.cols) = c("IGM-MGUS", "aWM_stable", "aWM_progressed", "sWM", "treated")
+## Set colors for stage of WM
+stage.cols = c("khaki3", "salmon1", "indianred2", "orangered3", "chartreuse4")
+names(stage.cols) = c("IGM-MGUS", "aWM_stable", "aWM_progressed", "sWM", "treated")
 
 
 ## clinical info df for each patient
@@ -109,32 +119,33 @@ sWM <- clinical.info[clinical.info$State == "sWM",]$Tumor_Sample_Barcode
 
 
 
+# ## When we want to read only the non-synonymous variants and load each patient independently this returns an ERROR when a patient does not have any non-synonymous variants
+# ## To avoid this bind all maf files first and then import them with maftools
 
-## vector of maf files (snv and indel results)
-mafs.read <- c()
-
-
-
-###### SNVs
-somatic_snvs <- list.files(path = somatic_snvs_maf_path)
-
-for (maf in somatic_snvs){
-  maf.read = read.maf(maf = paste0(somatic_snvs_maf_path, maf),
-                      vc_nonSyn = nonSilentPLUSsilent,  
-                      clinicalData = clinical.info)
-  mafs.read=append(mafs.read, maf.read)
-}
-
-
-
-###### INDELs
-somatic_indels <- list.files(path = somatic_indels_maf_path)
-
-for (maf in somatic_indels){
-  maf.read = read.maf(maf = paste0(somatic_indels_maf_path, maf),
-                      vc_nonSyn = nonSilentPLUSsilent) 
-  mafs.read=append(mafs.read, maf.read)
-}
+# ## vector of maf files (snv and indel results)
+# mafs.read <- c()
+# 
+# 
+# ###### SNVs
+# somatic_snvs <- list.files(path = somatic_snvs_maf_path)
+# 
+# for (maf in somatic_snvs){
+#   print(maf)
+#   maf.read = read.maf(maf = paste0(somatic_snvs_maf_path, maf),
+#                       vc_nonSyn = nonSilentPLUSsilent,  
+#                       clinicalData = clinical.info)
+#   mafs.read=append(mafs.read, maf.read)
+# }
+# 
+# 
+# ###### INDELs
+# somatic_indels <- list.files(path = somatic_indels_maf_path)
+# 
+# for (maf in somatic_indels){
+#   maf.read = read.maf(maf = paste0(somatic_indels_maf_path, maf),
+#                       vc_nonSyn = nonSilentPLUSsilent) 
+#   mafs.read=append(mafs.read, maf.read)
+# }
 
 
 
@@ -154,7 +165,7 @@ for (vcf.file in list.files(cnv.vcf.files.dir)) {
   # get a df for each patient's cnvs
   cnv.df <- vcf2df(paste0(cnv.vcf.files.dir, vcf.file))
   
-  # Remove Neutral CNVs    ########################### read about that
+  # Remove Neutral CNVs    
   cnv.df <- cnv.df[cnv.df$svtype != "NEUTR",]
   
   # insert the patient_ID into the patient's df
@@ -235,14 +246,58 @@ cnTable[cnTable$CNVType == "LOH", ]$CNVType <- "Amp"  ## ??
 cnTable[cnTable$CNVType == "DUP-LOH", ]$CNVType <- "Amp"
 
 
+
+# Bind all maf files first and then import it with maftools
+# SNVs
+setwd(somatic_snvs_maf_path)
+somatic_snvs <- list.files(path = somatic_snvs_maf_path)
+maf_list_somatic_snvs <- lapply(somatic_snvs, function(x) data.table::fread(x))
+maf_somatic_snvs <- rbindlist(maf_list_somatic_snvs)
+
+# maf object with ONLY the non-synonymous SNVs
+laml <- read.maf(maf_somatic_snvs,
+                 vc_nonSyn = nonSynonymous,
+                 clinicalData = clinical.info)
+
+# # Keep only the variants with more than 4 reads supporting the alt allele
+# laml <- subsetMaf(maf = laml, query = "t_alt_count >= '4'")
+
+
+
+
+# INDELS
+setwd(somatic_indels_maf_path)
+somatic_indels <- list.files(path = somatic_indels_maf_path)
+maf_list_somatic_indels <- lapply(somatic_indels, function(x) data.table::fread(x))
+
+
+maf_somatic_snvs_indels <- rbindlist(c(maf_list_somatic_snvs, maf_list_somatic_indels))
+
+
+
+
 # Data into maftools ----
 
-laml <- merge_mafs(c(mafs.read),
-                   vc_nonSyn = c(nonSilentPLUSsilent, "Amp", "Del"),
-                   cnTable = cnTable)   ## here we can add info for genes affected by CNVs using the param: cnTable
+# To work with SNVs, INDELs, CNVs:
+
+# laml <- merge_mafs(c(mafs.read),
+#                    vc_nonSyn = c(nonSilentPLUSsilent, "Amp", "Del"),
+#                    cnTable = cnTable)   ## here we can add info for genes affected by CNVs using the param: cnTable
+
+laml <- read.maf(maf_somatic_snvs_indels,
+                 vc_nonSyn = c(nonSynonymous, "Amp", "Del"),
+                 clinicalData = clinical.info,
+                 cnTable = cnTable)
+
+
+
+
+
+
+setwd("/home/rania/Documents/Tina/WES/maftools_plots/onlySNVs_nonSyn_taltmorethan4/")
+
 # Typing laml shows basic summary of MAF file.
 print(laml)
-
 
 #Shows sample summary.
 getSampleSummary(laml)
@@ -257,12 +312,13 @@ write.mafSummary(maf = laml, basename = 'laml')
 
 
 
+
 # oncoplots ----
 
 pdf(file = "maftools_out.pdf")
 
 # plot the summary of the maf file: number of variants in each sample as a stacked barplot and variant types as a boxplot summarized by Variant_Classification.
-plotmafSummary(maf = laml, addStat = 'median', titvRaw = FALSE, top = 25, fs = 0.8, color = nonSilentPLUSsilent.cols, showBarcodes = TRUE, textSize = 0.3)
+plotmafSummary(maf = laml, addStat = 'median', titvRaw = FALSE, top = 25, fs = 0.8, color = nonSynonymous.cols, showBarcodes = TRUE, textSize = 0.3)
 
 # oncoplot for top mutated genes
 oncoplot(maf = laml,
@@ -314,7 +370,7 @@ oncoplot(maf = laml,
          altered = TRUE,
          SampleNamefontSize = 0.7,
          showTumorSampleBarcodes = TRUE,
-         fontSize = 0.05, annotationFontSize = 1, legendFontSize = 1, titleFontSize = 0.8,
+         fontSize = 0.3, annotationFontSize = 1, legendFontSize = 1, titleFontSize = 0.8,
          clinicalFeatures = c("State","cAst_PCR"),
          sortByAnnotation = TRUE,   ##sorts only according to the 1st clinical feature
          groupAnnotationBySize = FALSE,  ##orders annotations by their size
@@ -329,7 +385,7 @@ oncoplot(maf = laml,
          fontSize = 0.3, annotationFontSize = 1, legendFontSize = 1, titleFontSize = 0.8,
          showTumorSampleBarcodes = TRUE,
          SampleNamefontSize = 0.7,
-         genesToIgnore = c("Unknown", immunoglobuline.genes.vec, "IGHM", "IGHJ6"),
+         genesToIgnore = c("Unknown", immunoglobuline.genes.vec),
          clinicalFeatures = c("State","cAst_PCR"),
          sortByAnnotation = TRUE,   ##sorts only according to the 1st clinical feature
          groupAnnotationBySize = FALSE,
@@ -337,8 +393,9 @@ oncoplot(maf = laml,
          includeColBarCN = FALSE
 )
 
-# oncoplot with pathways -----
 
+
+# oncoplot with pathways -----
 
 par(oma=c(2,2,2,2)) 
 oncoplot(maf = laml,
@@ -346,14 +403,13 @@ oncoplot(maf = laml,
          drawColBar = FALSE,
          # gene_mar = 14,
          pathways = "sigpw",
-         selectedPathways = c("NFKB_signaling", "MAPK_signaling", "Genome_integrity", "Epigenetics_DNA_modifiers", "Immune_signaling"),
+         # selectedPathways = c("NFKB_signaling", "MAPK_signaling", "Genome_integrity", "Epigenetics_DNA_modifiers", "Immune_signaling"),
          showTumorSampleBarcodes = TRUE,
          fontSize = 0.5, annotationFontSize = 0.8, legendFontSize = 1, titleFontSize = 0.8,
          sortByAnnotation = TRUE,
          annotationOrder = c("IGM-MGUS", "aWM_stable", "aWM_progressed", "sWM", "treated"),
          clinicalFeatures = c("State","cAst_PCR")
 )
-
 
 
 
@@ -389,12 +445,10 @@ oncoplot(maf = laml,
          pathways = pathways, gene_mar = 8,
          showTumorSampleBarcodes = TRUE,
          clinicalFeatures = c("State","cAst_PCR"),
-         fontSize = 0.2, annotationFontSize = 0.5, legendFontSize = 0.4, titleFontSize = 0.7,
+         fontSize = 0.5,annotationFontSize = 0.8, legendFontSize = 1, titleFontSize = 0.8,
          sortByAnnotation = TRUE,
          annotationOrder = c("IGM-MGUS", "aWM_stable", "aWM_progressed", "sWM", "treated")
          )
-
-
 
 # descriptive plots ----
 
@@ -418,7 +472,7 @@ lollipopPlot(maf = laml,gene = 'KMT2C',AACol ='HGVSp_Short',showMutationRate = T
 # rainfall plots: plotting inter variant distance on a linear genomic scale
 # also highlight regions where potential changes in inter-event distances are located
 rainfallPlot(maf = laml, tsb = "T1_608", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
-rainfallPlot(maf = laml, tsb = "T2_608", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
+rainfallPlot(maf = laml, tsb = "T_608", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
 
 rainfallPlot(maf = laml, tsb = "T_650_1", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
 rainfallPlot(maf = laml, tsb = "T_650_2", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
@@ -434,6 +488,7 @@ rainfallPlot(maf = laml, tsb = "T2_805", detectChangePoints = TRUE, pointSize = 
 
 rainfallPlot(maf = laml, tsb = "T_650_1", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
 rainfallPlot(maf = laml, tsb = "T_650_2", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
+rainfallPlot(maf = laml, tsb = "T_650_3", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
 
 rainfallPlot(maf = laml, tsb = "T1_2308", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
 rainfallPlot(maf = laml, tsb = "T_2308_2", detectChangePoints = TRUE, pointSize = 0.4, ref.build = "hg38")
@@ -495,9 +550,9 @@ PlotOncogenicPathways(maf = laml, pathways = "RTK-RAS", showTumorSampleBarcodes 
 PlotOncogenicPathways(maf = laml, pathways = "WNT", showTumorSampleBarcodes = TRUE)
 PlotOncogenicPathways(maf = laml, pathways = "Hippo", showTumorSampleBarcodes = TRUE)
 PlotOncogenicPathways(maf = laml, pathways = "PI3K", showTumorSampleBarcodes = TRUE)
-PlotOncogenicPathways(maf = laml, pathways = "Cell_Cycle", showTumorSampleBarcodes = TRUE)
+# PlotOncogenicPathways(maf = laml, pathways = "Cell_Cycle", showTumorSampleBarcodes = TRUE)
 PlotOncogenicPathways(maf = laml, pathways = "MYC", showTumorSampleBarcodes = TRUE)
-PlotOncogenicPathways(maf = laml, pathways = "NRF2", showTumorSampleBarcodes = TRUE)
+# PlotOncogenicPathways(maf = laml, pathways = "NRF2", showTumorSampleBarcodes = TRUE)
 PlotOncogenicPathways(maf = laml, pathways = "TP53", showTumorSampleBarcodes = TRUE)
 
 
@@ -560,6 +615,7 @@ dev.off()
 
 
 # Mutational Signatures ----
+
 library("BSgenome.Hsapiens.UCSC.hg38", quietly = TRUE)
 
 #  I work only with the SNVs here!!!
@@ -572,7 +628,7 @@ laml.tnm = trinucleotideMatrix(maf = laml, prefix = NULL, add = TRUE, ref_genome
 # Estimate APOBEC enrichment scores
 # APOBEC induced mutations are more frequent in solid tumors, associated with C>T transition events
 # Differences between APOBEC enriched and non-enriched samples
-plotApobecDiff(tnm = laml.tnm, maf = laml, pVal = 0.2)
+plotApobecDiff(tnm = laml.tnm, maf = laml, pVal = 0.5)
 # ---APOBEC related mutations are enriched in  0 % of samples (APOBEC enrichment score > 2 ;  0  of  67  samples
 
 # Signature analysis
@@ -584,7 +640,7 @@ laml.sign = estimateSignatures(mat = laml.tnm, nTry = 10)
 plotCophenetic(res = laml.sign)
 
 # set the optimal number of signatures
-laml.sig = extractSignatures(mat = laml.tnm, n = 6)
+laml.sig = extractSignatures(mat = laml.tnm, n = 4)
 
 
 
@@ -593,7 +649,6 @@ laml.og30.cosm = compareSignatures(nmfRes = laml.sig, sig_db = "legacy")
 
 #Compate against updated version3 60 signatures
 laml.v3.cosm = compareSignatures(nmfRes = laml.sig, sig_db = "SBS")
-
 
 # comparison of similarities of detected signatures against validated signatures
 library('pheatmap')
@@ -620,42 +675,115 @@ maftools::plotSignatures(nmfRes = laml.sig, contributions = TRUE, title_size = 0
 
 
 
+# #  mmsig ----
+# BiocManager::install("BSgenome.Hsapiens.UCSC.hg19")
+# devtools::install_github("evenrus/mmsig")
+library("mmsig")
+
+# Preparing the reference signatures
+data(signature_ref)
+head(signature_ref)
+
+# remove the platinum signature (SBS35) because the patients are not platinum exposed
+sig_ref <- signature_ref[c("sub", "tri", "SBS1", "SBS2", "SBS5", "SBS8",  "SBS9", "SBS13", "SBS18", "SBS84", "SBS-MM1")] 
+head(sig_ref)
+
+# Setting up the input data 
+
+# example of the required format: data(mm_96_classes)
+# laml.tnm$nmf_matrix contains the 96 profiles of all patients
+
+mmsig.input <- as.data.frame(t(laml.tnm$nmf_matrix))[, patient.order]
 
 
-# Density plots, tumor heterogeneity and MATH scores ----
+# here I am checking the SigProfilerMatrixGenerator output:
 
-# Prepare the segmentation file (must be tab separated file):
-# Column names should be: Sample, Chromosome, Start, End, Num_Probes and Segment_Mean (log2 scale)
-# !! Num_Probes is not important for the analysis !!
+mmsig.input.sigprofiler <- read.table(file = "/home/rania/Documents/Tina/WES/signatures/SigprofilerMatrixGenerator_onSNVs/output/SBS/WES_matrixGeneration.SBS96.exome",
+                                      header = TRUE, sep = "\t", row.names = 1)
 
-segFile.df <- patients.cnvs.df[, c("patient_ID", "chr", "start", "end", "num_mark", "cnlr_median")]
-
-colnames(segFile.df) <- c("Sample", "Chromosome", "Start", "End", "Num_Probes", "Segment_Mean")
-
-write.table(segFile.df, file = "segFile.txt" , quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+mmsig.input.sigprofiler <- as.data.frame(mmsig.input.sigprofiler)[, patient.order]
 
 
+# check if the two matrices are identical
+identical(mmsig.input.sigprofiler, mmsig.input)
+all.equal(mmsig.input.sigprofiler, mmsig.input)
 
-# "T_1558","T_1919","T_2029","T_2065","T_2088","T_2090","T_2245","T_2298","T_2303","T_2306","T_3100","T_3316",T_3540","T_3546","T_3672","T_3721","T_3826","T_3860","T_3905","T_4010","T_4021","T_4162","T_4198","T_4250","T_4269","T_4272","T_4302","T_4366","T_4388","T_4445","T_4496","T_4511","T1_2308","T_2308_2"
 
-samplename <- "T_2308_2"
 
-pdf(file = paste0("./density_plots/", samplename, ".pdf"))
+set.seed(1)
+# input.format = "classes": samples as columns and the 96 mutational classes as rows
+fit.signatures = mm_fit_signatures(muts.input = mmsig.input.sigprofiler,  
+                                   sig.input = sig_ref,
+                                   input.format = "classes",
+                                   sample.sigt.profs=NULL,
+                                   bootstrap=TRUE,
+                                   iterations=10, # 1000 iterations recommended for stable results
+                                   strandbias=FALSE, #whether strand bias should be tested for (only for vcf-like input format)
+                                   refcheck=FALSE,
+                                   cos_sim_threshold=0.01,
+                                   force_include=c("SBS1", "SBS5"),
+                                   dbg=FALSE)
 
-het1 = inferHeterogeneity(maf = laml, tsb = samplename, vafCol = NULL, useSyn = TRUE)
 
-# ignore variants located on copy-number altered regions
-het2 = inferHeterogeneity(maf = laml, tsb = samplename, vafCol = NULL, useSyn = TRUE, segFile = "segFile.txt")
 
-print(het1$clusterMeans)
 
-plotClusters(clusters = het1, genes = "all")
 
-print(het2$clusterMeans)
+# Plot signature estimates
 
-plotClusters(clusters = het2, genes = 'CN_altered', showCNvars = TRUE)
+sig.bar <- plot_signatures(fit.signatures$estimate,
+                           samples = T,
+                           sig_order = c("SBS1", "SBS2", "SBS13", "SBS5", "SBS8", "SBS9", "SBS18", "SBS84", "SBS-MM1", "SBS35")) +
+  scale_x_discrete(limits = patient.order) 
+  # + theme(axis.text.x = element_text(angle = 90, colour = stage.cols --> assign patientIDs to colors!!)) to color the patientIDs differently
 
-dev.off()
+
+sig.bar <- plot_signatures(fit.signatures$estimate,
+                           samples = T,
+                           sig_order = c("SBS1", "SBS2", "SBS13", "SBS5", "SBS8", "SBS9", "SBS18", "SBS84", "SBS-MM1", "SBS35")) +
+  scale_x_discrete(limits = patient.order)
+
+
+# Plot bootstraping confidence intervals in signatures per patient
+
+bootSigsPlot(fit.signatures$bootstrap)
+
+
+
+
+# # Density plots, tumor heterogeneity and MATH scores ----
+# 
+# # Prepare the segmentation file (must be tab separated file):
+# # Column names should be: Sample, Chromosome, Start, End, Num_Probes and Segment_Mean (log2 scale)
+# # !! Num_Probes is not important for the analysis !!
+# 
+# segFile.df <- patients.cnvs.df[, c("patient_ID", "chr", "start", "end", "num_mark", "cnlr_median")]
+# 
+# colnames(segFile.df) <- c("Sample", "Chromosome", "Start", "End", "Num_Probes", "Segment_Mean")
+# 
+# write.table(segFile.df, file = "segFile.txt" , quote = FALSE, row.names = FALSE, col.names = TRUE, sep = "\t")
+# 
+# 
+# 
+# # "T_1558","T_1919","T_2029","T_2065","T_2088","T_2090","T_2245","T_2298","T_2303","T_2306","T_3100","T_3316",T_3540","T_3546","T_3672","T_3721","T_3826","T_3860","T_3905","T_3967","T_4010","T_4021","Τ_4153","T_4162","T_4198","T_4250","T_4269","T_4272","T_4302","T_4366","T_4388","T_4445","T_4496","T_4511","T1_2308","T_2308_2"
+# 
+# samplename <- "T_4153"
+# 
+# pdf(file = paste0("./density_plots/", samplename, ".pdf"))
+# 
+# het1 = inferHeterogeneity(maf = laml, tsb = samplename, vafCol = NULL, useSyn = TRUE)
+# 
+# # ignore variants located on copy-number altered regions
+# het2 = inferHeterogeneity(maf = laml, tsb = samplename, vafCol = NULL, useSyn = TRUE, segFile = "segFile.txt")
+# 
+# print(het1$clusterMeans)
+# 
+# plotClusters(clusters = het1, genes = "all")
+# 
+# print(het2$clusterMeans)
+# 
+# plotClusters(clusters = het2, genes = 'CN_altered', showCNvars = TRUE)
+# 
+# dev.off()
 
 
 # # Plots ignoring chromosomes with CNVs
