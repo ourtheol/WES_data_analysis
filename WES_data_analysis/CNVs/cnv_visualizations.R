@@ -21,7 +21,7 @@ library("circlize")
 
 
 # path to the vcfs output from cnv_facets
-cnv.vcf.files.dir <- "/home/rania/Documents/Tina/WES/single_samples/cnv_vcfs/"
+cnv.vcf.files.dir <- "/home/rania/Documents/Tina/WES/cnv_vcfs_89samples/cnv_vcfs/"
 
 # hg38 chromosome arms ranges
 data(GRCh38.chromArm, package="biscuiteer")
@@ -325,6 +325,29 @@ cnFreq(cnSpec.input,
        genome="hg38", 
        plotChr=c(paste0("chr",rep(1:22))))
 
+
+# IGM-MGUS
+cnFreq(cnSpec.input,
+       genome="hg38", 
+       plotChr=c(paste0("chr",rep(1:22))))
+
+# aWM_stable
+cnFreq(cnSpec.input[cnSpec.input$sample %in% aWM_stable,],
+       genome="hg38", 
+       plotChr=c(paste0("chr",rep(1:22))))
+
+# aWM_progressed
+cnFreq(cnSpec.input[cnSpec.input$sample %in% aWM_progressed,],
+       genome="hg38", 
+       plotChr=c(paste0("chr",rep(1:22))))
+
+# sWM
+cnFreq(cnSpec.input[cnSpec.input$sample %in% sWM,],
+       genome="hg38", 
+       plotChr=c(paste0("chr",rep(1:22))))
+
+png(filename = "/home/rania/Documents/Tina/WES/new_variant_calling/CNVs/sWM.png", width = 1500, height = 480)
+dev.off()
 
 # plot the number of patients
 cnFreq(cnSpec.input,

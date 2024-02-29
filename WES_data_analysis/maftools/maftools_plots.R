@@ -21,13 +21,13 @@ library("mclust")
 
 
 # Path to the somatic SNVs maf files
-somatic_snvs_maf_path <- "/home/rania/Documents/Tina/WES/mafs/new_mafs/snvs/SNVs/"
+somatic_snvs_maf_path <-  "/home/rania/Documents/Tina/WES/new_variant_calling/"   #"/home/rania/Documents/Tina/WES/mafs/new_mafs/snvs/SNVs/"
 
 # Path to the somatic INDELSs maf files
 somatic_indels_maf_path <- "/home/rania/Documents/Tina/WES/mafs/new_mafs/indels/INDELS/"
 
 # path to the vcfs output from cnv_facets
-cnv.vcf.files.dir <- "/home/rania/Documents/Tina/WES/single_samples/cnv_vcfs/"
+cnv.vcf.files.dir <- "/home/rania/Documents/Tina/WES/cnv_vcfs_89samples/cnv_vcfs/"
 
 
 
@@ -252,7 +252,7 @@ cnTable[cnTable$CNVType == "DUP-LOH", ]$CNVType <- "Amp"
 setwd(somatic_snvs_maf_path)
 somatic_snvs <- list.files(path = somatic_snvs_maf_path)
 maf_list_somatic_snvs <- lapply(somatic_snvs, function(x) data.table::fread(x))
-maf_somatic_snvs <- rbindlist(maf_list_somatic_snvs)
+maf_somatic_snvs <- rbindlist(maf_list_somatic_snvs, fill=TRUE)
 
 # maf object with ONLY the non-synonymous SNVs
 laml <- read.maf(maf_somatic_snvs,
